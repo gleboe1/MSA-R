@@ -1,0 +1,77 @@
+#connect to database
+con <-  dbConnect(RMySQL::MySQL(),
+                  username = "username",
+                  password = "password",
+                  host = "ba-isdsclass-dev2.lsu.edu",
+                  port = 3306,
+                  dbname = "team02_database_msa"
+)
+
+#create dataframes for all of the tables
+sale <- dbGetQuery(con, "SELECT * FROM sale")
+dfsale <- data.frame(sale)
+location <- dbGetQuery(con, "SELECT * FROM location")
+dflocation <- data.frame(location)
+menu <- dbGetQuery(con, "SELECT * FROM menu")
+dfmenu <- data.frame(menu)
+recipe <- dbGetQuery(con, "SELECT * FROM recipe")
+dfrecipe <- data.frame(recipe)
+staff <- dbGetQuery(con, "SELECT * FROM staff")
+dfstaff <- data.frame(staff)
+stock <- dbGetQuery(con, "SELECT * FROM stock")
+dfstock <- data.frame(stock)
+
+#write new queries for aggregated functions
+totallocationamount <- dbGetQuery(con, "SELECT s.locationID,l.address, sum(s.Amount) as Amount FROM sale s, location l where l.locationID=s.locationID group by locationID")
+dftotallocationamount <- data.frame(totallocationamount)
+totalstaffamount <- dbGetQuery(con, "SELECT StaffID, sum(Amount) as Amount FROM sale group by StaffID")
+dftotalstaffamount <- data.frame(totalstaffamount)
+topitems <- dbGetQuery(con, "SELECT s.itemID, sum(s.Amount) as Amount, m.ItemName FROM sale s join menu m on m.itemid=s.itemid 
+                       group by itemid order by Amount DESC Limit 10")
+dftopitems <- data.frame(topitems)
+salendmenu <-dbGetQuery(con, "Select ItemName, SUM(itemprice-itemcost) as Profit_Margin FROM menu group by itemname")
+dfsalendmenu <- data.frame(salendmenu)
+
+#bar chart showing top 10 Menu Items by Dollar Amount Sold
+a <- ggplot(dftopitems, aes(x=reorder(ItemName, -Amount), y=Amount))
+a + geom_bar(stat = "identity",fill=alpha("blue", 0.6))+
+  geom_text(aes(label=ItemName), vjust="middle", size=4.5, angle=90, position = position_stack(vjust = 0.5),color="white")+
+  theme(plot.title = element_text(hjust = 0.5))+
+  theme(
+    panel.grid.major.y = element_blank(),
+    panel.border = element_blank(),
+    axis.ticks.y = element_blank(),
+    axis.text.x=element_blank(),
+    axis.title.x=element_blank()
+  )+
+  labs(y="DOLLAR AMOUNT", X="TOP TEN MENU ITEMS")+
+  ggtitle("Top 10 Menu Items Sold by Revenue")
+
+#lollipop chart showing location performance by amount sold
+c<-ggplot(dftotallocationamount, aes(x=address, y=Amount))
+c  +geom_segment( aes(address, xend=address, Amount, yend=0),color="skyblue")+
+  geom_point( size=4, color="blue", alpha=0.6)+
+  theme_light() +
+  coord_flip() +
+  theme(plot.title = element_text(hjust = -0.5))+
+  theme(
+    panel.grid.major.y = element_blank(),
+    panel.border = element_blank(),
+    axis.ticks.y = element_blank()
+  )+
+  labs(y="DOLLAR AMOUNT",x="LOCATION")+
+  ggtitle("Location Performance by Revenue")
+
+#Net Profit by Menu Item
+a <- ggplot(dfsalendmenu, aes(x=reorder(ItemName,-Profit_Margin), y=Profit_Margin))
+a + geom_bar(stat = "identity", fill=alpha('darkgreen', 0.9))+
+  geom_text(aes(label=ItemName), vjust=0.3, size=3.8, angle=90, position = position_stack(vjust = 0.5),color="white")+
+  labs(x='Menu  Item', y='$ Net Profit $')+
+  ggtitle('Net Profit by Menu Item')+
+  theme(plot.title = element_text(hjust = 0.5))+
+  theme(
+    panel.grid.major.y = element_blank(),
+    panel.border = element_blank(),
+    axis.ticks.y = element_blank(),
+    axis.text.x=element_blank()
+  )
